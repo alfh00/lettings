@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{% endblock title %}
+
+{% block content %}
+<div class='center__error'>
+ <h1>Erreur interne du serveur</h1>
+ <img src="{% static 'assets/img/500.png' %}" alt="500" style='width:300px'>
+ <p>Une erreur interne du serveur s'est produite. <p>
+   <a href="{% url 'index' %}">Retour à la page d'accueil</a></p>
+</div>
+{% endblock %}
