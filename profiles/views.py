@@ -1,18 +1,51 @@
+from typing import Union
+
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
+
 from .models import Profile
 
-# Create your views here.
-# Sed placerat quam in pulvinar commodo. Nullam laoreet consectetur ex, sed consequat libero pulvinar eget. Fusc
-# faucibus, urna quis auctor pharetra, massa dolor cursus neque, quis dictum lacus d
-def profiles_index(request):
-    profiles_list = Profile.objects.all()
-    context = {'profiles_list': profiles_list}
-    return render(request, 'profiles_index.html', context)
 
-# Aliquam sed metus eget nisi tincidunt ornare accumsan eget lac
-# laoreet neque quis, pellentesque dui. Nullam facilisis pharetra vulputate. Sed tincidunt, dolor id facilisis fringilla, eros leo tristique lacus,
-# it. Nam aliquam dignissim congue. Pellentesque habitant morbi tristique senectus et netus et males
-def profile(request, username):
-    profile = Profile.objects.get(user__username=username)
-    context = {'profile': profile}
-    return render(request, 'profile.html', context)
+def profiles_index(request: HttpRequest) -> Union[HttpResponse, Http404]:
+    """
+    Renders the 'profiles_index.html' template with
+    a list of all profiles.
+
+    Parameters:
+    - request (HttpRequest): The HTTP request object.
+
+    Returns:
+    - HttpResponse: A rendered HTML response containing
+      the content of the 'profiles_index.html' template
+      and a context variable 'profiles_list' with a list
+      of all profiles.
+    """
+    try:
+        profiles_list = Profile.objects.all()
+    except Profile.DoesNotExist:
+        raise Http404("No profile found")
+    context = {"profiles_list": profiles_list}
+    return render(request, "profiles_index.html", context)
+
+
+def profile(request: HttpRequest, username: str) -> Union[HttpResponse, Http404]:
+    """
+    Renders the 'profile.html' template for a specific user profile.
+
+    Parameters:
+    - request (HttpRequest): The HTTP request object.
+    - username (str): The username of the profile to be displayed.
+
+    Returns:
+    - HttpResponse: A rendered HTML response containing the content of the 'profile.html' template
+      and a context variable 'profile' with the details of the specified user profile.
+
+    Raises:
+    - Http404: If the specified user profile does not exist.
+    """
+    try:
+        profile = Profile.objects.get(user__username=username)
+    except Profile.DoesNotExist:
+        raise Http404("Profile does not exist")
+    context = {"profile": profile}
+    return render(request, "profile.html", context)

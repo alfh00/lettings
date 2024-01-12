@@ -2,12 +2,14 @@
 
 from django.db import migrations
 
+
 def delete_old_models(apps, schema_editor):
     OldModel1 = apps.get_model("oc_lettings_site", "Address")
     OldModel2 = apps.get_model("oc_lettings_site", "Letting")
 
     OldModel1.objects.all().delete()
     OldModel2.objects.all().delete()
+
 
 class Migration(migrations.Migration):
     operations = [

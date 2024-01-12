@@ -1,7 +1,9 @@
-from django.apps import apps 
-from django.db import migrations, transaction
+from django.apps import apps
+
 # from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
+from django.db import migrations, transaction
+
 
 # user_model = get_user_model()
 def forwards(apps, schema_editor):
@@ -13,18 +15,13 @@ def forwards(apps, schema_editor):
 
     NewModel = apps.get_model("profiles", "Profile")
     NewModel.objects.bulk_create(
-        NewModel(favorite_city=old_object.favorite_city,
-                 user=old_object.user)
-        for old_object in OldModel.objects.all()
+        NewModel(favorite_city=old_object.favorite_city, user=old_object.user) for old_object in OldModel.objects.all()
     )
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('profiles', '0001_initial_profile'),
-        
-        
-        
+        ("profiles", "0001_initial_profile"),
     ]
 
     if apps.is_installed("oc_lettings_site"):
@@ -33,5 +30,3 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(forwards, migrations.RunPython.noop),
     ]
-
-

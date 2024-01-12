@@ -13,18 +13,19 @@ def forwards(apps, schema_editor):
 
     NewModel1 = apps.get_model("lettings", "Address")
     NewModel1.objects.bulk_create(
-        NewModel1(number=old_object.number,
-                 street=old_object.street,
-                 city=old_object.city,
-                 state=old_object.state,
-                 zip_code=old_object.zip_code,
-                 country_iso_code=old_object.country_iso_code)
+        NewModel1(
+            number=old_object.number,
+            street=old_object.street,
+            city=old_object.city,
+            state=old_object.state,
+            zip_code=old_object.zip_code,
+            country_iso_code=old_object.country_iso_code,
+        )
         for old_object in OldModel1.objects.all()
     )
     NewModel2 = apps.get_model("lettings", "Letting")
     NewModel2.objects.bulk_create(
-        NewModel2(title=old_object.title,
-                 address=NewModel1.objects.get(id=old_object.address_id))
+        NewModel2(title=old_object.title, address=NewModel1.objects.get(id=old_object.address_id))
         for old_object in OldModel2.objects.all()
     )
 
@@ -40,6 +41,3 @@ class Migration(migrations.Migration):
 
     if global_apps.is_installed("oc_lettings_site"):
         dependencies.append(("oc_lettings_site", "0001_initial"))
-
-
-
