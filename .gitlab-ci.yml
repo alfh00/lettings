@@ -1,8 +1,5 @@
 image: docker:19.03.13
 
-services:
-  - docker:dind
-
 stages:
   - lint
   - test
@@ -23,7 +20,10 @@ lint:
 test:
   stage: test
   script:
-    - docker-compose run pytest
+    - apt-get update -qy
+    - apt-get install -y docker-compose
+    - docker-compose --version
+    - docker-compose run web pytest
 
 build:
   stage: build
