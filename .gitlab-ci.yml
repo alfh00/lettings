@@ -1,8 +1,34 @@
+image: docker:latest
+
 stages:
+  - lint
   - test
+  - build
+  - deploy
+
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+lint:
+  stage: lint
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME .
+    - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME flake8 .
+    - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME black --check .
 
 test:
-  image: python:3.9.18-slim-bullseye
+  stage: test
   script:
-    - pip install -r requirements.txt
-    - pytest
+    - docker-compose run web python manage.py test
+
+build:
+  stage: build
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME .
+
+deploy:
+  stage: deploy
+  only:
+    - master
+  script:
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME

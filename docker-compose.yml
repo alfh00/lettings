@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  site:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: oc_lettings_site:latest
+    command:
+      [
+        'gunicorn',
+        '--bind',
+        '0.0.0.0:8000',
+        'oc_lettings_site.wsgi:application',
+      ]
+    environment:
+      - DJANGO_DEBUG=${DEBUG}
+    volumes:
+      - ./oc_lettings_site:/app
+      - oc_lettings_db:/app/
+    ports:
+      - '8000:8000'
+
+volumes:
+  oc_lettings_db:

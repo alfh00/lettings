@@ -1,8 +1,9 @@
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from sentry_sdk import set_level
 
-from . import views
+from . import settings, views
 
 set_level("warning")
 
@@ -18,3 +19,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("sentry-debug/", trigger_error),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
