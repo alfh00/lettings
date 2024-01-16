@@ -20,12 +20,7 @@ def test_lettings_index():
 @pytest.mark.django_db
 def test_letting_view():
     address = Address.objects.create(
-        number=1111,
-        street="Street test",
-        city="City test",
-        state="State test",
-        zip_code="1111",
-        country_iso_code="FR"
+        number=1111, street="Street test", city="City test", state="State test", zip_code="1111", country_iso_code="FR"
     )
     print(address)
     letting = Letting.objects.create(title="title test", address=address)
