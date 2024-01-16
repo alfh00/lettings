@@ -1,4 +1,4 @@
-image: docker:latest
+image: docker:19.03.13
 
 stages:
   - lint
@@ -7,7 +7,7 @@ stages:
   - deploy
 
 before_script:
-  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
 
 lint:
   stage: lint
@@ -15,6 +15,7 @@ lint:
     - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME .
     - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME flake8 .
     - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME black --check .
+    - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME black .
 
 test:
   stage: test
