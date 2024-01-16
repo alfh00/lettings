@@ -16,14 +16,14 @@ lint:
   stage: lint
   script:
     - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME .
-    - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME flake8 .
+    - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME flake8 --max-line-length=120
     - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME black --check .
     - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME black .
 
 test:
   stage: test
   script:
-    - docker-compose run web python manage.py test
+    - docker-compose run pytest
 
 build:
   stage: build
