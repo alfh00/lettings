@@ -23,8 +23,6 @@ lint:
 test:
   stage: test
   script:
-    - apt-get update -qy
-    - apt-get install -y docker-compose
     - docker-compose --version
     - docker-compose run web pytest
 
