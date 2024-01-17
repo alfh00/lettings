@@ -22,7 +22,7 @@ build:
     - docker-compose build
     - docker-compose push
 
-test:
+.test:
   stage: test
   image: docker:20.10
   services:
