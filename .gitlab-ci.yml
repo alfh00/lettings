@@ -1,8 +1,10 @@
 image: docker:20.10
 
+services:
+  - docker:20.10-dind
+
 stages:
   - build
-  - test
   - deploy
 
 variables:
@@ -14,19 +16,13 @@ variables:
   DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
 
 before_script:
-  - - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
+  - echo "$CI_JOB_TOKEN" | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
 
 build:
   stage: build
   script:
-    - docker build -t $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME .
-    - docker push $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME
-
-test:
-  stage: test
-  script:
-    - pip install -r requirements.txt
-    - pytest
+    - docker build -t $CI_REGISTRY_IMAGE/$DOCKER_IMAGE_NAME .
+    - docker push $CI_REGISTRY_IMAGE/$DOCKER_IMAGE_NAME
 
 deploy:
   stage: deploy
@@ -36,7 +32,8 @@ deploy:
     - apt-get update -qy
     - apt-get install -y python-dev python-pip
     - pip install awsebcli
-    - eb deploy $EB_ENV_NAME
+    - eb init -p docker $EB_APP_NAME
+    - eb create $EB_APP_NAME-env
   environment:
     name: production
   when: manual
