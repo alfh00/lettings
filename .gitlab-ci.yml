@@ -4,7 +4,7 @@ stages:
   - deploy
 
 variables:
-  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_IID
   AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
   AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
   EB_APP_NAME: $APP_NAME
@@ -29,7 +29,7 @@ test:
   services:
     - docker:20.10-dind
   script:
-    - docker run $CI_REGISTRY_IMAGE pytest
+    - docker run $CI_REGISTRY_IMAGE:$APP_VERSION pytest
 
 deploy:
   image:
