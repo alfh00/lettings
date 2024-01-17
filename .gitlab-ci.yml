@@ -41,4 +41,3 @@ deploy:
     - eb create $EB_APP_NAME-env
   environment:
     name: production
-  when: manual
