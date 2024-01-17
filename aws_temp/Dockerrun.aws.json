@@ -1,7 +1,7 @@
 {
   "AWSEBDockerrunVersion": "1",
   "Image": {
-    "Name": "$CI_REGISTRY_IMAGE"
+    "Name": "$CI_REGISTRY_IMAGE:$APP_VERSION"
   },
   "Authentication": {
     "Bucket": "$AWS_S3_BUCKET",
