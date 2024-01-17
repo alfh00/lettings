@@ -1,63 +1,73 @@
 stages:
   - build
-  - package
   - test
+  - release
   - deploy
 
-variables:
-  APP_VERSION: $CI_PIPELINE_IID
-
-build website:
-  image: python:3.8-alpine
+build-job:
+  tags:
+    - vm-shell
   stage: build
   script:
+    - echo "creating virtual environment for the project..."
+    - python -m venv env
+    - source $(pwd)/env/scripts/activate
+    - echo "Installing requirements..."
     - pip install -r requirements.txt
-    - python manage.py collectstatic --noinput
+    - pip install --upgrade pip
+    - deactivate
   artifacts:
     paths:
-      - static/
-      - my_project/
+      - $(pwd)/env
 
-build docker image:
-  stage: package
-  image: docker:20.10.12
-  services:
-    - docker:20.10.12-dind
-  script:
-    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
-    - docker build -t $CI_REGISTRY_IMAGE -t $CI_REGISTRY_IMAGE:$APP_VERSION .
-    - docker image ls
-    - docker push --all-tags $CI_REGISTRY_IMAGE
-
-test docker image:
+test-job:
+  tags:
+    - vm-shell
   stage: test
-  image: python:3.8-alpine
-  services:
-    - name: $CI_REGISTRY_IMAGE:$APP_VERSION
-      alias: website
   script:
-    - python manage.py test
+    - echo "Activating virtual environment..."
+    - source $(pwd)/env/scripts/activate
+    - echo "Running unit tests..."
+    - pytest
+    - echo "Checking the server..."
+    - python manage.py runserver &
+    - sleep 10
+    - curl -sSf http://localhost:8000 > /dev/null && echo "Server is Up"
+    - sudo pkill python
+    - deactivate
+    - echo "All tests successfully passed."
 
-deploy to production:
+variables:
+  CONTAINER_IMAGE: $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
+
+release-job:
+  tags:
+    - vm-shell
+  stage: release
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $CONTAINER_IMAGE .
+    - docker push $CONTAINER_IMAGE
+  after_script:
+    - docker logout
+
+deploy to elasticbeanstalk:
   image:
-    name: amazon/aws-cli:2.4.11
+    name: python:3.8-alpine
     entrypoint: ['']
   stage: deploy
-  variables:
-    APP_NAME: My Django App
-    APP_ENV_NAME: MyDjangoApp-env
-  environment: production
   script:
-    - aws --version
-    - yum install -y gettext
-    - export DEPLOY_TOKEN=$(echo $GITLAB_DEPLOY_TOKEN | tr -d "\n" | base64)
-    - envsubst < templates/Dockerrun.aws.json > Dockerrun.aws.json
-    - envsubst < templates/auth.json > auth.json
-    - cat Dockerrun.aws.json
-    - cat auth.json
-    - aws s3 cp Dockerrun.aws.json s3://$AWS_S3_BUCKET/Dockerrun.aws.json
-    - aws s3 cp auth.json s3://$AWS_S3_BUCKET/auth.json
-    - aws elasticbeanstalk create-application-version --application-name "$APP_NAME" --version-label $APP_VERSION --source-bundle S3Bucket=$AWS_S3_BUCKET,S3Key=Dockerrun.aws.json
-    - aws elasticbeanstalk update-environment --application-name "$APP_NAME" --version-label $APP_VERSION --environment-name $APP_ENV_NAME
-    - aws elasticbeanstalk wait environment-updated --application-name "$APP_NAME" --version-label $APP_VERSION --environment-name $APP_ENV_NAME
-    - curl $CI_ENVIRONMENT_URL/version.html | grep $APP_VERSION
+    - pip install awsebcli --upgrade
+    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+    - aws configure set default.region $AWS_DEFAULT_REGION
+    - eb --version
+    - echo "Deploying to Elastic Beanstalk..."
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+    - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$AWS_ECR_REPOSITORY_NAME:$CI_COMMIT_REF_NAME
+    - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$AWS_ECR_REPOSITORY_NAME:$CI_COMMIT_REF_NAME
+    - eb init -p docker $AWS_ELASTIC_BEANSTALK_APP_NAME --region $AWS_DEFAULT_REGION
+    - eb use $AWS_ELASTIC_BEANSTALK_ENV_NAME
+    - eb deploy --label $CI_COMMIT_REF_NAME
