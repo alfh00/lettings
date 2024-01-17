@@ -1,39 +1,63 @@
-image: docker:19.03.13
-
-services:
-  - docker:dind
-
 stages:
-  - lint
-  - test
   - build
+  - package
+  - test
   - deploy
 
-before_script:
-  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+variables:
+  APP_VERSION: $CI_PIPELINE_IID
 
-lint:
-  stage: lint
-  script:
-    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME .
-    - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME flake8 --max-line-length=120
-    - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME black --check .
-    - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME black .
-
-test:
-  stage: test
-  script:
-    - docker-compose --version
-    - docker-compose run web pytest
-
-build:
+build website:
+  image: python:3.8-alpine
   stage: build
   script:
-    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME .
+    - pip install -r requirements.txt
+    - python manage.py collectstatic --noinput
+  artifacts:
+    paths:
+      - static/
+      - my_project/
 
-deploy:
-  stage: deploy
-  only:
-    - master
+build docker image:
+  stage: package
+  image: docker:20.10.12
+  services:
+    - docker:20.10.12-dind
   script:
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
+    - docker build -t $CI_REGISTRY_IMAGE -t $CI_REGISTRY_IMAGE:$APP_VERSION .
+    - docker image ls
+    - docker push --all-tags $CI_REGISTRY_IMAGE
+
+test docker image:
+  stage: test
+  image: python:3.8-alpine
+  services:
+    - name: $CI_REGISTRY_IMAGE:$APP_VERSION
+      alias: website
+  script:
+    - python manage.py test
+
+deploy to production:
+  image:
+    name: amazon/aws-cli:2.4.11
+    entrypoint: ['']
+  stage: deploy
+  variables:
+    APP_NAME: My Django App
+    APP_ENV_NAME: MyDjangoApp-env
+  environment: production
+  script:
+    - aws --version
+    - yum install -y gettext
+    - export DEPLOY_TOKEN=$(echo $GITLAB_DEPLOY_TOKEN | tr -d "\n" | base64)
+    - envsubst < templates/Dockerrun.aws.json > Dockerrun.aws.json
+    - envsubst < templates/auth.json > auth.json
+    - cat Dockerrun.aws.json
+    - cat auth.json
+    - aws s3 cp Dockerrun.aws.json s3://$AWS_S3_BUCKET/Dockerrun.aws.json
+    - aws s3 cp auth.json s3://$AWS_S3_BUCKET/auth.json
+    - aws elasticbeanstalk create-application-version --application-name "$APP_NAME" --version-label $APP_VERSION --source-bundle S3Bucket=$AWS_S3_BUCKET,S3Key=Dockerrun.aws.json
+    - aws elasticbeanstalk update-environment --application-name "$APP_NAME" --version-label $APP_VERSION --environment-name $APP_ENV_NAME
+    - aws elasticbeanstalk wait environment-updated --application-name "$APP_NAME" --version-label $APP_VERSION --environment-name $APP_ENV_NAME
+    - curl $CI_ENVIRONMENT_URL/version.html | grep $APP_VERSION
