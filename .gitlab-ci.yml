@@ -1,73 +1,41 @@
 stages:
   - build
   - test
-  - release
   - deploy
 
-build-job:
-  tags:
-    - vm-shell
+variables:
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+  AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+  EB_APP_NAME: $APP_NAME
+  EB_ENV_NAME: $AWS_ELASTIC_BEANSTALK_ENV_NAME
+  DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
+  DOCKER_REGISTRY: 'registry.gitlab.com'
+
+before_script:
+  - echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin $DOCKER_REGISTRY
+
+build:
   stage: build
   script:
-    - echo "creating virtual environment for the project..."
-    - python -m venv env
-    - source $(pwd)/env/scripts/activate
-    - echo "Installing requirements..."
-    - pip install -r requirements.txt
-    - pip install --upgrade pip
-    - deactivate
-  artifacts:
-    paths:
-      - $(pwd)/env
+    - docker build -t $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME .
+    - docker push $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME
 
-test-job:
-  tags:
-    - vm-shell
+test:
   stage: test
   script:
-    - echo "Activating virtual environment..."
-    - source $(pwd)/env/scripts/activate
-    - echo "Running unit tests..."
+    - pip install -r requirements.txt
     - pytest
-    - echo "Checking the server..."
-    - python manage.py runserver &
-    - sleep 10
-    - curl -sSf http://localhost:8000 > /dev/null && echo "Server is Up"
-    - sudo pkill python
-    - deactivate
-    - echo "All tests successfully passed."
 
-variables:
-  CONTAINER_IMAGE: $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
-
-release-job:
-  tags:
-    - vm-shell
-  stage: release
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker build -t $CONTAINER_IMAGE .
-    - docker push $CONTAINER_IMAGE
-  after_script:
-    - docker logout
-
-deploy to elasticbeanstalk:
-  image:
-    name: python:3.8-alpine
-    entrypoint: ['']
+deploy:
   stage: deploy
+  only:
+    - main
   script:
-    - pip install awsebcli --upgrade
-    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-    - aws configure set default.region $AWS_DEFAULT_REGION
-    - eb --version
-    - echo "Deploying to Elastic Beanstalk..."
-    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-    - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
-    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$AWS_ECR_REPOSITORY_NAME:$CI_COMMIT_REF_NAME
-    - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$AWS_ECR_REPOSITORY_NAME:$CI_COMMIT_REF_NAME
-    - eb init -p docker $AWS_ELASTIC_BEANSTALK_APP_NAME --region $AWS_DEFAULT_REGION
-    - eb use $AWS_ELASTIC_BEANSTALK_ENV_NAME
-    - eb deploy --label $CI_COMMIT_REF_NAME
+    - apt-get update -qy
+    - apt-get install -y python-dev python-pip
+    - pip install awsebcli
+    - eb deploy $EB_ENV_NAME
+  environment:
+    name: production
+  when: manual
