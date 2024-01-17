@@ -1,2 +1,2 @@
 Sphinx
-Django
+Django==3.2.8
