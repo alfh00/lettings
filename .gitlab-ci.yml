@@ -15,7 +15,7 @@ variables:
   DOCKER_REGISTRY: 'registry.gitlab.com'
 
 before_script:
-  - echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin $DOCKER_REGISTRY
+  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
 
 build:
   stage: build
