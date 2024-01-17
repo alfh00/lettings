@@ -4,3 +4,7 @@ README.md
 .coverage
 .coveragerc
 htmlcov
+build
+source
+make.bat
+Makefile

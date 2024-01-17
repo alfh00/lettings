@@ -11,19 +11,20 @@ WORKDIR /app
 # Copy the current directory contents into the container
 COPY . /app/
 
-COPY ./oc-lettings-site.sqlite3 /app/oc-lettings-site.sqlite3
-
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Nginx
+RUN apt-get update && apt-get install -y nginx
+
+# Remove the default Nginx configuration
+RUN rm /etc/nginx/nginx.conf
+
+# Copy your custom Nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
 
-# Define environment variable for Django
-ENV DJANGO_SETTINGS_MODULE=oc_lettings_site.settings
-
-# Collect static files
-RUN python manage.py collectstatic
-
-# Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "oc_lettings_site.wsgi:application"]
+# Start both Django and Nginx
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:8000 oc_lettings_site.wsgi:application & nginx -g 'daemon off;'"]

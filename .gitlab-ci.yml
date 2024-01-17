@@ -1,44 +1,58 @@
-image: docker:20.10
-
-services:
-  - docker:20.10-dind
-
 stages:
   - build
   - test
   - deploy
 
 variables:
-  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_IID
   AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
   AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
   EB_APP_NAME: $APP_NAME
   EB_ENV_NAME: $AWS_ELASTIC_BEANSTALK_ENV_NAME
-
-before_script:
-  - echo "$CI_JOB_TOKEN" | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+  APP_VERSION: $CI_PIPELINE_IID
 
 build:
   stage: build
+  image: docker:20.10
+  services:
+    - docker:20.10-dind
+  before_script:
+    - echo "$CI_JOB_TOKEN" | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
   script:
-    - docker build -t $CI_REGISTRY_IMAGE .
-    - docker push $CI_REGISTRY_IMAGE
+    - docker build -t $CI_REGISTRY_IMAGE -t $CI_REGISTRY_IMAGE:$APP_VERSION .
+    - docker image ls
+    - docker push --all-tags $CI_REGISTRY_IMAGE
 
 test:
   stage: test
+  image: docker:20.10
+  services:
+    - docker:20.10-dind
   script:
-    - docker run $CI_REGISTRY_IMAGE pytest
+    - docker run $CI_REGISTRY_IMAGE:$APP_VERSION pytest
 
 deploy:
+  image:
+    name: amazon/aws-cli:2.4.11
+    entrypoint: ['']
   stage: deploy
+  variables:
+    APP_NAME: oclet
+    APP_ENV_NAME: oclet-env
+  environment: production
+  script:
+    - aws --version
+    - yum install -y gettext
+    - export DEPLOY_TOKEN=$(echo $GITLAB_DEPLOY_TOKEN | tr -d "\n" | base64)
+    - envsubst < aws_temp/Dockerrun.aws.json > Dockerrun.aws.json
+    - envsubst < aws_temp/auth.json > auth.json
+    - cat Dockerrun.aws.json
+    - cat auth.json
+    - aws s3 cp Dockerrun.aws.json s3://$AWS_S3_BUCKET/Dockerrun.aws.json
+    - aws s3 cp auth.json s3://$AWS_S3_BUCKET/auth.json
+    - aws elasticbeanstalk create-application-version --application-name "$APP_NAME" --version-label $APP_VERSION --source-bundle S3Bucket=$AWS_S3_BUCKET,S3Key=Dockerrun.aws.json
+    - aws elasticbeanstalk update-environment --application-name "$APP_NAME" --version-label $APP_VERSION --environment-name $APP_ENV_NAME
+    - aws elasticbeanstalk wait environment-updated --application-name "$APP_NAME" --version-label $APP_VERSION --environment-name $APP_ENV_NAME
   only:
     - main
-  script:
-    - apt-get update -qy
-    - apt-get install -y python-dev python-pip
-    - pip install awsebcli
-    - eb init -p docker $EB_APP_NAME
-    - eb create $EB_APP_NAME-env
-  environment:
-    name: production
   when: manual
