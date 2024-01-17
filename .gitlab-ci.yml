@@ -23,6 +23,9 @@ build:
 
 test:
   stage: test
+  image: docker:20.10
+  services:
+    - docker:20.10-dind
   script:
     - docker run $CI_REGISTRY_IMAGE pytest
 
