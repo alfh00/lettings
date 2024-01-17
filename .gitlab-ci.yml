@@ -12,10 +12,9 @@ variables:
   EB_APP_NAME: $APP_NAME
   EB_ENV_NAME: $AWS_ELASTIC_BEANSTALK_ENV_NAME
   DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
-  DOCKER_REGISTRY: 'registry.gitlab.com'
 
 before_script:
-  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
+  - echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin $DOCKER_REGISTRY
 
 build:
   stage: build
