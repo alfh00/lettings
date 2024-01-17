@@ -6,10 +6,12 @@ services:
       - static:/static
     build:
       context: .
+    image: $CI_REGISTRY_IMAGE:$APP_VERSION
     ports:
       - '8000:8000'
   nginx:
     build: ./nginx
+    image: $CI_REGISTRY_IMAGE:$APP_VERSION
     volumes:
       - static:/static
     ports:

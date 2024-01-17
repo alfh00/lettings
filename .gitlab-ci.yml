@@ -19,9 +19,8 @@ build:
   before_script:
     - echo "$CI_JOB_TOKEN" | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
   script:
-    - docker build -t $CI_REGISTRY_IMAGE -t $CI_REGISTRY_IMAGE:$APP_VERSION .
-    - docker image ls
-    - docker push --all-tags $CI_REGISTRY_IMAGE
+    - docker-compose build
+    - docker-compose push
 
 test:
   stage: test
@@ -29,7 +28,7 @@ test:
   services:
     - docker:20.10-dind
   script:
-    - docker run $CI_REGISTRY_IMAGE:$APP_VERSION pytest
+    - docker-compose run django_gunicorn pytest
 
 deploy:
   image:
